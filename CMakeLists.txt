@@ -32,6 +32,7 @@ target_include_directories(${EXE_NAME} PRIVATE "${EXE_INCLUDE_PATH}")
 
 
 target_link_libraries(${EXE_NAME} PRIVATE "raylib")
+target_link_libraries(${EXE_NAME} PRIVATE "box2d")
 target_link_libraries(${EXE_NAME} PRIVATE "LDtkLoader")
 target_link_libraries(${EXE_NAME} PRIVATE "GL")
 target_link_libraries(${EXE_NAME} PRIVATE "m")

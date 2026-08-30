@@ -1,27 +1,42 @@
+
+
+#include "Actor.hpp"
+#include "Component.hpp"
+#include "PlayerController.hpp"
 #include <LDtkLoader/Tile.hpp>
-#include <raylib.h>
 #include <LDtkLoader/Project.hpp>
 #include <vector>
 #include <string>
+#include <glm/glm.hpp>
+
+namespace ray
+{
+    #include <raylib.h>
+};
+
 
 struct Tile
 {
-    Vector2 grid;
+    ray::Vector2 grid;
     int value = 0;
 };
 
 const int TILE_SIZE = 16;
 
+std::vector<Actor*> actors;
 
-
-
-
-void SetEntities(std::vector<Tile> *tiles,const ldtk::Layer& layer)
+enum ObjectType
 {
+    Chest = 1,
+    Player = 2,
+    None = -1
+};
 
+void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
+{
     if(layer.getType() != ldtk::LayerType::Entities)
     {
-        TraceLog(LOG_ERROR,"Ldtk: Not entities layer %s",layer.getName().c_str());
+        ray::TraceLog(ray::LOG_ERROR,"Ldtk: Not entities layer %s",layer.getName().c_str());
     }
 
     for(const auto& entity : layer.allEntities())
@@ -37,30 +52,52 @@ void SetEntities(std::vector<Tile> *tiles,const ldtk::Layer& layer)
         }
         else if(entity.getName() == ((std::string)"Player"))
         {
-            value = 2;
+            actors.push_back(new Actor());
+            actors.back()->AddComponent<BoxCollision>();
+            actors.back()->AddComponent<Transform>();
+            actors.back()->AddComponent<SpriteRenderer>();
+
+            actors.back()->AddComponent<PlayerController>();
+
+            actors.back()->GetComponent<Transform>()->position = glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE);
         }
         else
         {
             value = -1;
         }
 
-        tiles->push_back({(float)grid_x,(float)grid_y,value});
     }
 }
 
-void SetTiles(std::vector<Tile> *tiles,const ldtk::Layer& layer)
+
+void SetTiles(std::vector<Actor*> &actors,const ldtk::Layer& layer)
 {
     if(layer.getType() != ldtk::LayerType::Tiles)
     {
-        TraceLog(LOG_ERROR,"Ldtk: Not tile layer %s",layer.getName().c_str());
+        ray::TraceLog(ray::LOG_ERROR,"Ldtk: Not tile layer %s",layer.getName().c_str());
     }
 
-    for (const auto& tile : layer.allTiles())
+    // std::cout<<"alltiles :"<<layer.allTiles().size()<<"\n";
+    int i = 0;
+    for(const auto& tile : layer.allTiles())
     {
         int grid_x = tile.getGridPosition().x;
         int grid_y = tile.getGridPosition().y;
+        
+        if(tile.tileId == 0)
+        {
 
-        tiles->push_back({(float)grid_x,(float)grid_y,tile.tileId});
+            std::cout<<"alltiles :  "<<i<<"\n";
+
+             actors.push_back( new Actor());
+             actors.back()->AddComponent<BoxCollision>();
+             actors.back()->AddComponent<Transform>();
+             actors.back()->AddComponent<SpriteRenderer>();
+
+             actors.back()->GetComponent<Transform>()->position = glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE);
+        }
+
+        i++;
     }
 }
 
@@ -73,16 +110,6 @@ std::vector<Tile> entities;
 std::vector<Tile> characters; // init position of characters
 
 
-
-
-struct Player
-{
-    Vector2 position = {0,0};
-    int health = 100;
-    
-};
-
-Player player;
 int main()
 {
     ldtk::Project stage;
@@ -92,155 +119,100 @@ int main()
     const auto& level = world.getLevel(0);
 
    
-    const Vector2 window = {(float)2560,(float)1440};   // 4K Monitor
+    const ray::Vector2 window = {(float)2560,(float)1440};   // 4K Monitor
     //const Vector2 window = {(float)1280,(float)720};  // FullHD Monitor
     //const Vector2 window = {(float)1080,(float)1920}; // Mobile Phone Portrait
     //const Vector2 window = {(float)1920,(float)1080}; // Mobile Phone Landscape
- 
 
     //const Vector2 screen = {(float)2560,(float)1440};   // 4K Monitor
-    const Vector2 screen = {(float)1280,(float)720};  // FullHD Monitor
+    const ray::Vector2 screen = {(float)1280,(float)720};  // FullHD Monitor
     //const Vector2 screen = {(float)1080,(float)1920}; // Mobile Phone Portrait
     //const Vector2 screen = {(float)1920,(float)1080}; // Mobile Phone Landscape
     
-    const Vector2 scale = {(float)window.x/screen.x,(float)window.y/screen.y};
+    const ray::Vector2 scale = {(float)window.x / screen.x,(float)window.y / screen.y};
 
 
-    InitWindow(window.x,window.y,"App");
+    ray::InitWindow(window.x,window.y,"App");
+    ray::SetWindowState(ray::FLAG_VSYNC_HINT);
+    ray::RenderTexture2D target = ray::LoadRenderTexture((int)screen.x,(int)screen.y);
+    SetTextureFilter(target.texture,ray::TEXTURE_FILTER_POINT);
 
 
-    RenderTexture2D target = LoadRenderTexture((int)screen.x,(int)screen.y);
-    SetTextureFilter(target.texture,TEXTURE_FILTER_POINT);
-
-
-    Camera2D camera = { 0 };
-    camera.target = (Vector2){ 0.0f, 0.0f };                                                        // Center of 0,0
-    camera.offset = (Vector2){0,0};    // Center of the screen
+    ray::Camera2D camera = { 0 };
+    camera.target = (ray::Vector2){ 0.0f, 0.0f };                                                        // Center of 0,0
+    camera.offset = (ray::Vector2){0,0};    // Center of the screen
     // camera.offset = (Vector2){(float)target.texture.width/ 2, (float)target.texture.height / 2};    // Center of the screen
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
-    
-    Texture2D sprite = LoadTexture("res/sprite/tile.png");
-    
 
-    SetTiles(&walls,level.getLayer("Wall"));
-    SetEntities(&entities,level.getLayer("Object"));
-    SetEntities(&characters,level.getLayer("Character"));
-    
 
-    for(Tile &tile : characters)
+    /*############################################################
+    # Framework init
+    ############################################################ */
+    std::vector<std::string> spritePaths;
+    spritePaths.push_back("res/sprite/tile.png");
+    
+    Collision::Init(glm::vec2(0.0f,0.0f));  // Collision init 
+    SpriteRenderer::Init(spritePaths);      // SpriteRenderer init
+
+
+    /*############################################################
+    # Level init
+    ############################################################ */
+    SetEntities(actors,level.getLayer("Character"));
+
+
+    std::cout<<"Actors: "<<actors.size()<<"\n";
+    // SetTiles(actors,level.getLayer("Wall"));
+
+    for(Actor* actor : actors)
     {
-        if(tile.value == 2)
-        {
-            player.position = (Vector2){tile.grid.x * TILE_SIZE * 3,tile.grid.y * TILE_SIZE * 3};
+        actor->Ready();
+        actor->Start();
 
-        }
     }
 
-    while (!WindowShouldClose())
+    while (ray::WindowShouldClose() == false)
     {
 
         /*############################################################
         # Update
         ############################################################ */
 
-        float speed = 200;
-        // std::cout<<GetFrameTime()<<std::endl;
-
-        if(IsKeyDown(KEY_W))
-        {
-            player.position.y -= speed * GetFrameTime(); // Adjust movement speed based on frame time
-        }
-        if(IsKeyDown(KEY_S))
-        {
-            player.position.y += speed * GetFrameTime();
-        }
-        if(IsKeyDown(KEY_A))
-        {
-            player.position.x -= speed * GetFrameTime();
-        }
-        if(IsKeyDown(KEY_D))
-        {
-            player.position.x += speed * GetFrameTime();
-        }
-
-
 
 
         /*############################################################
         # Rendering     *Draw to the render texture
         ############################################################ */
+        ray::BeginTextureMode(target);
+        ray::BeginMode2D(camera);
+        ray::ClearBackground(ray::BLACK);
 
-        BeginTextureMode(target);
-        BeginMode2D(camera);
-        ClearBackground(BLACK);
-    
-        for(Tile &tile : walls)
+        for(Actor* actor : actors)
         {
-
-
-            DrawTexturePro(
-                sprite,
-                (Rectangle){ 0,0, (float)TILE_SIZE, (float)TILE_SIZE},     // Source
-                (Rectangle){ (float)tile.grid.x * TILE_SIZE * 3,(float)tile.grid.y * TILE_SIZE * 3, (float)TILE_SIZE* 3,(float)TILE_SIZE* 3 },      // Destination
-                (Vector2){0,0},                                                     // Origin
-                0.0f,                                                               // Rotation
-                WHITE
-            );
-
+             actor->Update();
+             actor->Render();
         }
 
-        for(Tile &tile : entities)
-        {
-            DrawTexturePro(
-                sprite,
-                (Rectangle){ (float)TILE_SIZE,0, (float)TILE_SIZE, (float)TILE_SIZE},     // Source
-                (Rectangle){ (float)tile.grid.x * TILE_SIZE * 3,(float)tile.grid.y * TILE_SIZE * 3, (float)TILE_SIZE* 3,(float)TILE_SIZE* 3 },      // Destination
-                (Vector2){0,0},                                                     // Origin
-                0.0f,                                                               // Rotation
-                WHITE
-            );
-
-        }
-
-        // Draw the player
-
-        DrawTexturePro(
-                sprite,
-                (Rectangle){ (float)TILE_SIZE * 2,0, (float)TILE_SIZE, (float)TILE_SIZE},     // Source
-                (Rectangle){ (float)player.position.x,(float)player.position.y, (float)TILE_SIZE* 3,(float)TILE_SIZE* 3 },      // Destination
-                (Vector2){0,0},                                                     // Origin
-                0.0f,                                                               // Rotation
-                WHITE
-            );
-
-
-
-
-
-
-
-        EndTextureMode();
-        EndMode2D();
-
-
+        ray::EndTextureMode();
+        ray::EndMode2D();
 
         /*############################################################
         # Draw to the rennder texture to the screen
         ############################################################ */
-        BeginDrawing();
-        ClearBackground(BLACK);
+        ray::BeginDrawing();
+        ray::ClearBackground(ray::BLACK);
 
-        DrawTexturePro(
+        ray::DrawTexturePro(
                 target.texture,
-                (Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },    // Source (flipped)
-                (Rectangle){ 0, 0, (float)window.x,window.y },                                      // Destination
-                (Vector2){0,0},                                                                     // Origin
+                (ray::Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },    // Source (flipped)
+                (ray::Rectangle){ 0, 0, (float)window.x,window.y },                                      // Destination
+                (ray::Vector2){0,0},                                                                     // Origin
                 0.0f,                                                                               // Rotation
-                WHITE
+                ray::WHITE
                 );
 
-        EndDrawing();
+        ray::EndDrawing();
     }
 
 
