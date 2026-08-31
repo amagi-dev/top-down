@@ -3,6 +3,7 @@
 // #include <iostream>
 #include "Component.hpp"
 #include "Actor.hpp"
+#include <iostream>
 
 class PlayerController : public Component
 {
@@ -10,7 +11,8 @@ public:
     using Component::Component;
     
     Transform* transform;
-    
+    RigidBody* body;
+
     const int spriteSize = 16;
     void Ready() override
     {
@@ -20,13 +22,18 @@ public:
     void Start() override
     {
         transform = (Transform*)owner->GetComponent<Transform>();
+        body = owner->GetComponent<RigidBody>();
         
-
+    
         owner->GetComponent<SpriteRenderer>()->SetSprite("res/sprite/tile.png");
         
         owner->GetComponent<SpriteRenderer>()->beginSize = glm::vec2(spriteSize * 2,0.0f);
         owner->GetComponent<SpriteRenderer>()->endSize = glm::vec2(spriteSize,spriteSize);
         owner->GetComponent<SpriteRenderer>()->scale = glm::vec2(3.0f,3.0f);
+
+
+
+
     }
 
 
@@ -34,28 +41,30 @@ public:
 
     void Update() override
     {
-        // std::cout<<transform->position.x<<","<<transform->position.y<<"\n";
 
-        float speed = 200.0f; // Movement speed in pixels per second
+        float speed = 500.0f; // Movement speed in pixels per second
+        glm::vec2 move(0.0f, 0.0f);
         if(ray::IsKeyDown(ray::KEY_W))
         {
-            transform->position.y -= speed * ray::GetFrameTime(); // Adjust movement speed based on frame time
+            move.y = -speed;
         }
         if(ray::IsKeyDown(ray::KEY_S))
         {
-            transform->position.y += speed * ray::GetFrameTime();
+            move.y = speed;
         }
         if(ray::IsKeyDown(ray::KEY_A))
         {
-            transform->position.x -= speed * ray::GetFrameTime();
+            move.x = -speed;
         }
         if(ray::IsKeyDown(ray::KEY_D))
         {
-            transform->position.x += speed * ray::GetFrameTime();
+            move.x = speed;
         }
-
-
-
+        
+        // std::cout<<"Move: "<< transform->getPosition().x<<"\n";
+        body->Move(move);
+        
+        
     }
 };
 

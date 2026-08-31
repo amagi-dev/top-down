@@ -30,8 +30,9 @@ void SpriteRenderer::Render()const
             sprite.texture,
             //(ray::Rectangle){ 0,0,16 * 3,16},     // Source
             (ray::Rectangle){ beginSize.x,beginSize.y,endSize.x,endSize.y },     // Source
-            (ray::Rectangle){ (float)transform->position.x,(float)transform->position.y,16 * 3,16 * 3 },      // Destination
-            (ray::Vector2){0,0},                                                     // Origin
+            (ray::Rectangle){ (float)transform->getPosition().x,(float)transform->getPosition().y,16 * 3,16 * 3 },      // Destination
+            // (ray::Vector2){0,0},                                                     // Origin
+            (ray::Vector2){16.0f * 3 / 2.0f,16.0f * 3 / 2.0f},                                                    // Origin
             0.0f,                                                               // Rotation
             ray::WHITE
         );

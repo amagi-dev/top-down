@@ -2,7 +2,9 @@
 
 #include "Actor.hpp"
 #include "Component.hpp"
+#include "Entity.hpp"
 #include "PlayerController.hpp"
+
 #include <LDtkLoader/Tile.hpp>
 #include <LDtkLoader/Project.hpp>
 #include <vector>
@@ -15,22 +17,11 @@ namespace ray
 };
 
 
-struct Tile
-{
-    ray::Vector2 grid;
-    int value = 0;
-};
-
 const int TILE_SIZE = 16;
 
 std::vector<Actor*> actors;
+TileLayer tileLayer;
 
-enum ObjectType
-{
-    Chest = 1,
-    Player = 2,
-    None = -1
-};
 
 void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
 {
@@ -56,10 +47,11 @@ void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
             actors.back()->AddComponent<BoxCollision>();
             actors.back()->AddComponent<Transform>();
             actors.back()->AddComponent<SpriteRenderer>();
+            actors.back()->AddComponent<RigidBody>();
+
 
             actors.back()->AddComponent<PlayerController>();
-
-            actors.back()->GetComponent<Transform>()->position = glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE);
+            actors.back()->GetComponent<Transform>()->Init(glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE));
         }
         else
         {
@@ -70,45 +62,26 @@ void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
 }
 
 
-void SetTiles(std::vector<Actor*> &actors,const ldtk::Layer& layer)
+void SetTiles(TileLayer &tiles,const ldtk::Layer& layer)
 {
     if(layer.getType() != ldtk::LayerType::Tiles)
     {
         ray::TraceLog(ray::LOG_ERROR,"Ldtk: Not tile layer %s",layer.getName().c_str());
     }
 
-    // std::cout<<"alltiles :"<<layer.allTiles().size()<<"\n";
-    int i = 0;
     for(const auto& tile : layer.allTiles())
     {
         int grid_x = tile.getGridPosition().x;
         int grid_y = tile.getGridPosition().y;
-        
+
+        // std::cout<<tile.tileId<<std::endl;
         if(tile.tileId == 0)
         {
-
-            std::cout<<"alltiles :  "<<i<<"\n";
-
-             actors.push_back( new Actor());
-             actors.back()->AddComponent<BoxCollision>();
-             actors.back()->AddComponent<Transform>();
-             actors.back()->AddComponent<SpriteRenderer>();
-
-             actors.back()->GetComponent<Transform>()->position = glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE);
+             tiles.setEntity(glm::vec2(grid_x * TILE_SIZE, grid_y * TILE_SIZE),glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
+            // tiles.setEntity(glm::vec2(grid_x * TILE_SIZE * 3, grid_y * TILE_SIZE * 3),glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
         }
-
-        i++;
     }
 }
-
-
-
-
-
-std::vector<Tile> walls;
-std::vector<Tile> entities;
-std::vector<Tile> characters; // init position of characters
-
 
 int main()
 {
@@ -154,22 +127,19 @@ int main()
     
     Collision::Init(glm::vec2(0.0f,0.0f));  // Collision init 
     SpriteRenderer::Init(spritePaths);      // SpriteRenderer init
-
+    
+    tileLayer.Init();
 
     /*############################################################
     # Level init
     ############################################################ */
     SetEntities(actors,level.getLayer("Character"));
-
-
-    std::cout<<"Actors: "<<actors.size()<<"\n";
-    // SetTiles(actors,level.getLayer("Wall"));
-
+    // SetTiles(tileLayer,level.getLayer("Wall"));
+ 
     for(Actor* actor : actors)
     {
         actor->Ready();
         actor->Start();
-
     }
 
     while (ray::WindowShouldClose() == false)
@@ -179,7 +149,14 @@ int main()
         # Update
         ############################################################ */
 
+            
+        
+        for(Actor* actor : actors)
+        {
+            actor->Update();
+        }
 
+        Collision::WorldUpdate();
 
         /*############################################################
         # Rendering     *Draw to the render texture
@@ -187,12 +164,14 @@ int main()
         ray::BeginTextureMode(target);
         ray::BeginMode2D(camera);
         ray::ClearBackground(ray::BLACK);
-
+        
+        // tileLayer.Render();
+       
         for(Actor* actor : actors)
         {
-             actor->Update();
-             actor->Render();
+            actor->Render();
         }
+
 
         ray::EndTextureMode();
         ray::EndMode2D();

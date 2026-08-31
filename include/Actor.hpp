@@ -11,8 +11,8 @@ class Transform;
 class Actor
 {
 public:
-
-    Actor(){    };
+    Actor()  { }
+    ~Actor() { }
     /*
      * NOTE:
      * Ready()は最初に実行される関数です。初期化するだけ
@@ -20,28 +20,23 @@ public:
      * */
 
 
-    virtual void Ready()
+    void Ready()
     {
         for(Component* component : components)
         {
-
              component->Ready();
         }
     };
 
-
-    virtual void Start()
+    void Start()
     {
-        
-
         for(Component* component : components)
         {
              component->Start();
         }
-
     };
 
-    virtual void Update()
+    void Update()
     {
         for(const Component* component : components)
         {
@@ -49,15 +44,12 @@ public:
         }
     };
 
-    virtual void Render() const
+    void Render() const
     {
         for(const Component* component : components)
         {
             component->Render();
-            // ((Component*)component)->Render();
         }
-
-
     };
 
     template<typename Type>
@@ -72,7 +64,7 @@ public:
                 return c;
             }
         }
-        
+
         assert(false && "Component is not found!");
         return nullptr;
     }
