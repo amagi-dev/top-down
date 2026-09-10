@@ -1,94 +1,109 @@
-#ifndef ___ACTOTR_HPP___
-#define ___ACTOTR_HPP___
+#ifndef ___ACTOR_HPP___
+#define ___ACTOR_HPP___
+#include <vector>
+#include <variant>
+// #include <memory>
 
 #include "Component.hpp"
-#include <vector>
-// #include <iostream>
-
-class Component;
-class Transform;
-
+#include "Script.hpp"
 class Actor
 {
 public:
-    Actor()  { }
-    ~Actor() { }
-    /*
-     * NOTE:
-     * Ready()は最初に実行される関数です。初期化するだけ
-     * Start()はReady()の後に実行されて。Update()が呼ばれる前に実行されます。ユーザースクリプトの　Start()後に実行されます
-     * */
-
-
-    void Ready()
-    {
-        for(Component* component : components)
-        {
-             component->Ready();
-        }
-    };
+    Actor() = default;
+    ~Actor() = default;
 
     void Start()
     {
-        for(Component* component : components)
+        for(auto& c : components)
         {
-             component->Start();
+            std::visit([](Component& cc) { cc.Start(); }, c);
         }
-    };
+
+        for(auto& s : scripts)
+        {
+            s->Start();
+        }
+    }
 
     void Update()
     {
-        for(const Component* component : components)
+        for(auto& c : components)
         {
-            ((Component*)component)->Update();
+            std::visit([](Component& cc) { cc.Update(); }, c);
         }
-    };
 
-    void Render() const
-    {
-        for(const Component* component : components)
+        for(auto& s : scripts)
         {
-            component->Render();
+            s->Update();
         }
-    };
+    }
 
-    template<typename Type>
-    Type* GetComponent()
+    void Render()
     {
-        static_assert(std::is_base_of_v<Component, Type>,"This type is not component");
-        for(Component *component : components)
+        for(auto& c : components)
         {
-            Type* c = dynamic_cast<Type*>(component);
-            if(c != nullptr)
+            std::visit([](Component& cc) { cc.Render(); }, c);
+        }
+
+
+        for(auto& s : scripts)
+        {
+            s->RenderUpdate();
+        }
+    }
+
+    template<typename T>
+    void AddComponent()
+    {
+        static_assert(std::is_base_of<Component,T>::value,"is not a Component type");
+
+        for(auto& component : components)
+        {
+            if(std::holds_alternative<T>(component))
             {
-                return c;
+                return;
             }
         }
 
-        assert(false && "Component is not found!");
+        components.emplace_back(std::in_place_type<T>, this);
+    }
+
+    template<typename T>
+    T* GetComponent()
+    {
+        static_assert(std::is_base_of<Component,T>::value,"is not a Component type");
+
+        for(auto& component : components)
+        {
+            if(std::holds_alternative<T>(component))
+            {
+                return &std::get<T>(component);
+            }
+        }
+
         return nullptr;
     }
 
-    template<typename Type>
-    Type* AddComponent()
+    template<typename T>
+    void AddScript()
     {
-        static_assert(std::is_base_of_v<Component, Type>,"This type is not component");
-        for(Component *component : components)
+        static_assert(std::is_base_of<Script,T>::value,"is not a Script type");
+
+        for(auto& c : scripts)
         {
-            Type* c = dynamic_cast<Type*>(component);
-            if(c != nullptr)
+            if(std::dynamic_pointer_cast<T>(c))
             {
-                return c;
+                return;
             }
         }
 
-        components.push_back(new Type(this));
-        return dynamic_cast<Type*>(components.back());
-    } 
+        scripts.emplace_back(std::make_shared<T>(this));
+
+    }
+
 
 private:
-     std::vector<Component*> components;
+    std::vector<std::variant<Transform,SpriteRenderer,CircleCollision,BoxCollision,Movement>> components;
+    std::vector<std::shared_ptr<Script>> scripts;
 };
 #endif
-
-

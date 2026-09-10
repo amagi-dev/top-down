@@ -1,285 +1,275 @@
 #ifndef ___COMPONENT_HPP___
 #define ___COMPONENT_HPP___
 
+
+#include "Ray.hpp"
 #include <box2d/collision.h>
-#include <box2d/id.h>
-#include <box2d/types.h>
-#include <chrono>
 #include <glm/glm.hpp>
 #include <box2d/box2d.h>
-#include <vector>
-#include <string>
- #include <iostream>
+#include <entt/entt.hpp>
 
-
-namespace ray
+/*#############################################################
+ * ECS component data
+ *#############################################################*/
+struct Transform_Data
 {
-    #include <raylib.h>
+    glm::vec2 position = { };
+};
+
+struct SpriteRenderer_Data
+{
+    glm::vec2 beginSize = { };
+    glm::vec2 endSize = { };
+};
+
+struct BoxCollision_Data
+{
+    glm::vec2 size = { };
+    glm::vec2 offset = { };
+
+    b2Polygon shape = { };
+    b2ShapeDef shapeDef = { };
+
+    b2BodyDef bodyDef ={ };
+    b2BodyId bodyId = { };
+};
+
+struct CircleCollision_Data
+{
+    float radius = 0.0f;
+    glm::vec2 offset = { };
+};
+
+/*#############################################################
+ * Internal component data
+ *#############################################################*/
+struct SpriteRenderer_Data_Internal
+{
+    ray::Texture2D sprite = { };
 };
 
 
+/*#############################################################
+ * Component class
+ *#############################################################*/
 class Actor;
 class Component
 {
 public:
-
-    Component(Actor* actor) : owner(actor){    }; 
+    Component(Actor *const actor) : owner(actor){   }
     virtual ~Component() = default;
 
-    virtual void Ready(){   };
-    virtual void Start(){   };
+    virtual void Start(){ }
+    virtual void Update(){ }
+    virtual void Render()const{ }
 
-    virtual void Update(){   };
-    virtual void Render()const{   };
 
-//    void *const owner = nullptr;
-    Actor *const owner = nullptr;
+protected:
+    Actor *const owner;
 };
 
-
-
-
-
-/*############################################################
- * Default Component Types
-############################################################ */
-class Collision;
 class Transform : public Component
 {
 public:
+
+
     using Component::Component;
-    
-    Collision *collision = nullptr;
-    ~Transform() = default;
+    virtual ~Transform() = default;
 
-    virtual void Ready()override;
-
-
-    glm::vec2 getPosition()
-    {
-        return position;
-    }
-    
-    glm::vec2 initPosition = glm::vec2(0.0f);
-
-    void Init(const glm::vec2& pos)
-    {
-        initPosition = pos;
-    }
-
-    void setPosition(const glm::vec2& pos)
-    {
-        position = pos;
-        
-    }
+    glm::vec2 position = { 0.0f, 0.0f };
 
 private:
-
-    glm::vec2 position = glm::vec2(0.0f);
-    glm::vec2 forward = glm::vec2(0.0f);
+    glm::vec2 forward = { 1.0f, 0.0f };
 
 };
 
+class Collision;
 class SpriteRenderer : public Component
 {
 public:
-    using Component::Component;
-    ~SpriteRenderer() = default;
 
-    static void Init(std::vector<std::string>& paths)
+    Collision *collision = nullptr;
+
+    struct Texture
     {
-        for(const std::string& path : paths)
-        {
-            bool isLoaded = false;
-            // check if the texture is already loaded
-            for(const Sprite& sprite : textures)
-            {
-                if(sprite.name == path)
-                {
-                    isLoaded = true;
-                    break;
-                }
-            }
+        ray::Texture2D texture = {  };
+        const std::string path = {  };
+    };
 
-            if(isLoaded == false)
-            {
-                ray::Texture2D texture = ray::LoadTexture(path.c_str());
+    Transform *transform = nullptr;
+    ray::Texture2D texture = {  };
 
-                // std::cout<<texture.width<<","<<texture.height<<"\n";
-                if(texture.id == 0)
-                {
-                    ray::TraceLog(ray::LOG_ERROR,"SpriteRenderer: Failed to load texture %s",path.c_str());
-                    exit(1);
-                }
-                else
-                {
-                    textures.push_back(Sprite{texture,path});
-                    ray::TraceLog(ray::LOG_INFO,"SpriteRenderer: Successfully to load texture %s",path.c_str());
-                }
-            }
-        }
-    }
-
-    Transform* transform = nullptr;
-    
-    struct Sprite;
-
-    static Sprite GetSprite(const std::string& path)
+    static void LoadTextureFromFile(const std::string& path)
     {
-        for(const Sprite& texture : textures)
+        for(auto& texture : textures)
         {
-            if(texture.name == path)
+            if(texture.path == path)
             {
-                Sprite sprite;
-                sprite.texture = texture.texture;
-                sprite.name = texture.name;
-
-                return sprite;
-            }
-        }
-
-
-        assert(false && "SpriteRenderer: Failed to get texture");
-        return Sprite{  };
-    }
-
-    void SetSprite(const std::string& path)
-    {
-        for(const Sprite& texture : textures)
-        {
-            if(texture.name == path)
-            {
-                sprite.texture = texture.texture;
-                sprite.name = texture.name;
-
-                // std::cout<<"SpriteRenderer: Successfully to set texture "<<sprite.texture.width<<"\n";
+                ray::TraceLog(ray::LOG_WARNING,"SpriteRenderer: Texture already loaded %s",path.c_str());
                 return;
             }
         }
+
+        Texture texture = { .path = path };
+        texture.texture = ray::LoadTexture(texture.path.c_str());
+        textures.push_back(texture);
     }
 
+    static ray::Texture2D GetTexture(const std::string& path)
+    {
+        for(auto& texture : textures)
+        {
+            if(texture.path == path)
+            {
+                return texture.texture;
+            }
+        }
 
-    void Ready() override;
+        ray::TraceLog(ray::LOG_ERROR,"SpriteRenderer: Texture not found %s",path.c_str());
+        return {  };
+    }
+
+    void SetTexture(const std::string& path)
+    {
+        texture = GetTexture(path);
+    }
+
     virtual void Start() override;
     virtual void Render()const override;
 
-    std::string texturePath = "";
-
-    glm::vec2 beginSize = glm::vec2(0.0f);
-    glm::vec2 endSize = glm::vec2(0.0f);
-    glm::vec2 scale = glm::vec2(1.0f);
+    using Component::Component;
+    virtual ~SpriteRenderer() = default;
 
 
-    struct Sprite
-    {
-        ray::Texture2D texture = {  };
-        std::string name = "";
 
-    };
-    Sprite sprite = {  };
-    static std::vector<Sprite> textures;
+    inline static std::vector<Texture> textures;
+
+    //ray::Texture2D sprite = {  };
+    glm::vec2 beginSize = { };
+    glm::vec2 endSize = { };
 };
 
 
-/* NOTE:
- *
- * Box2Dは中心が0x0なので描画座標はBox2Dの座標系に合わせる必要がある
- *
- * */
 
 class Collision : public Component
 {
 public:
-    using Component::Component;
-    ~Collision() = default;
-    
-    Transform* transform = nullptr;
-
-    b2BodyDef bodyDef = b2BodyDef();
-    b2ShapeDef shapeDef = b2ShapeDef();
-    b2BodyId bodyId = b2BodyId();
-
-    static void Init(const glm::vec2 gravity = glm::vec2(0.0f,0.0f))
+    static void Init(const glm::vec2 gravity)
     {
         worldDef = b2DefaultWorldDef();
         worldDef.gravity = { gravity.x,gravity.y };
         worldId = b2CreateWorld(&worldDef);
     }
-    
 
-    glm::vec2 getPosition()const
-    {
-        b2Vec2 position = b2Body_GetPosition(bodyId);
-        return glm::vec2(position.x,position.y);
-    }
+    using Component::Component;
+    virtual ~Collision() = default;
 
-    void Move(const glm::vec2 direction)
-    {
-        // std::cout<<"Collision.Move: "<<direction.x<<","<<direction.y<<"\n";
-        std::cout<<bodyId.index1<<std::endl; 
-
-        b2Vec2 velocity = { direction.x,direction.y };
-        b2Body_SetLinearVelocity(bodyId,velocity);
-    }
-
-    void SetPosition(const glm::vec2 position)
-    {
-        b2Vec2 pos = { position.x,position.y };
-        b2Rot rot = b2MakeRot(0.0f);
-        b2Body_SetTransform(bodyId,pos,rot);
-    }
-    
     static void WorldUpdate()
     {
         b2World_Step(worldId,1.0f / 60.0f,4);
     }
 
-    static b2WorldId worldId;
-    static b2WorldDef worldDef;
-};
-
-// 物理挙動
-class RigidBody : public Component
-{
-public:
-    using Component::Component;
-    ~RigidBody() = default;
-    
-    Collision* collision = nullptr;
-    Transform* transform = nullptr;
-
-    virtual void Ready() override;
-    virtual void Update() override;
-     
-    
-    void Move(const glm::vec2 direction)
+    static b2WorldId GetWorldId()
     {
-        collision->Move(direction);
+        return worldId;
     }
 
-};
+    b2BodyId GetBodyId()
+    {
+        return bodyId;
+    }
+protected:
 
+    b2BodyDef bodyDef = b2BodyDef();
+    b2ShapeDef shapeDef = b2ShapeDef();
+    b2BodyId bodyId = b2BodyId();
+
+    inline static b2WorldId worldId;
+    inline static b2WorldDef worldDef;
+
+};
 
 class BoxCollision : public Collision
 {
 public:
+
+    void Start() override
+    {
+        shape = b2MakeBox(ray::TILE_SIZE_SCALED / 2.0f,ray::TILE_SIZE_SCALED / 2.0f);
+
+        bodyDef = b2DefaultBodyDef();
+        bodyDef.type = b2_dynamicBody;
+
+        bodyId = b2CreateBody(worldId,&bodyDef);
+
+        shapeDef = b2DefaultShapeDef();
+        shapeDef.density = 1.0f;
+        shapeDef.material.friction = 0.0f;
+        shapeDef.material.restitution = 0.0f;
+
+        b2CreatePolygonShape(bodyId,&shapeDef,&shape);
+    }
+
     using Collision::Collision;
-    ~BoxCollision() = default;
+    virtual ~BoxCollision() = default;
 
-    virtual void Ready() override;
-
+private:
     b2Polygon shape = b2Polygon();
 };
 
 class CircleCollision : public Collision
 {
 public:
+
+    void Start() override
+    {
+        b2Circle circle = {
+            .center = {0,0},
+            // .center = {ray::TILE_SIZE_SCALED / 2.0f, ray::TILE_SIZE_SCALED / 2.0f},
+            .radius = (ray::TILE_SIZE_SCALED / 2.0f) - 0.1f
+        };
+
+        shape = circle;
+        bodyDef = b2DefaultBodyDef();
+        bodyDef.type = b2_dynamicBody;
+
+        bodyId = b2CreateBody(worldId,&bodyDef);
+
+        shapeDef = b2DefaultShapeDef();
+        shapeDef.density = 1.0f / (ray::TILE_SIZE_SCALED * ray::TILE_SIZE_SCALED);
+
+        shapeDef.material.friction = 0.0f;
+        shapeDef.material.restitution = 0.0f;
+
+        b2CreateCircleShape(bodyId,&shapeDef,&shape);
+        // std::cout<< "CircleCollision: Start " << std::endl;
+    }
+
     using Collision::Collision;
-    ~CircleCollision() = default;
+    virtual ~CircleCollision() = default;
 
-    virtual void Ready() override;
-
+private:
     b2Circle shape = b2Circle();
+};
+
+
+class Movement : public Component
+{
+public:
+    using Component::Component;
+    virtual ~Movement() = default;
+
+    virtual void Start() override;
+    virtual void Update() override;
+
+    void Move(glm::vec2 move)
+    {
+        std::cout<< "Movement: Move " << move.x << "," << move.y << std::endl;
+        b2Body_SetLinearVelocity(collision->GetBodyId(),{ move.x,move.y });
+    }
+
+    Collision* collision = nullptr;
+    Transform* transform = nullptr;
 };
 
 #endif

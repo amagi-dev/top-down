@@ -1,76 +1,79 @@
-#include <box2d/box2d.h>
-#include <iostream>
 #include "Component.hpp"
 #include "Actor.hpp"
-#include <box2d/id.h>
+#include <box2d/box2d.h>
+#include <raylib.h>
 
-b2WorldId Collision::worldId = b2WorldId();
-b2WorldDef Collision::worldDef = b2WorldDef();
-
-std::vector<SpriteRenderer::Sprite> SpriteRenderer::textures;
-
-void BoxCollision::Ready()
+void SpriteRenderer::Start()
 {
     transform = owner->GetComponent<Transform>();
-    shape = b2MakeBox(16 * 3 / 2.0f,16 * 3 / 2.0f);
-    
-    bodyDef = b2DefaultBodyDef();
-    bodyDef.type = b2_dynamicBody;
 
-    bodyId = b2CreateBody(worldId,&bodyDef);
+    Collision *c = owner->GetComponent<BoxCollision>();
+    if(c)
+    {
+        collision = c;
+    }
 
-    shapeDef = b2DefaultShapeDef();
-    shapeDef.density = 1.0f;
-    shapeDef.material.friction = 0.6f;
-    
-    b2CreatePolygonShape(bodyId,&shapeDef,&shape);
-    
-    b2Vec2 position = { transform->initPosition.x,transform->initPosition.y };
-    b2Body_SetTransform(bodyId,position,b2MakeRot(0));
-    transform->setPosition(transform->initPosition);
 
+    c = owner->GetComponent<CircleCollision>();
+    if(c)
+    {
+        collision = c;
+    }
 }
 
-
-
-void Transform::Ready()
+void Movement::Start()
 {
-    collision = owner->AddComponent<BoxCollision>();
-    
-}
-
-
-void CircleCollision::Ready()
-{
-    const float tileSize = (16.0f * 3.0f) - 1.0f;
-
-    b2Circle circle = {
-    .center = {tileSize / 2.0f, tileSize / 2.0f},
-    .radius = (tileSize / 2.0f) - 0.1f
-    };
-
-    shape = circle;
-    bodyDef = b2DefaultBodyDef();
-    bodyDef.type = b2_dynamicBody;
-
-    bodyId = b2CreateBody(worldId,&bodyDef);
-
-    shapeDef = b2DefaultShapeDef();
-    shapeDef.density = 1.0f;
-    shapeDef.material.friction = 0.6f;
-
     transform = owner->GetComponent<Transform>();
-    b2CreateCircleShape(bodyId,&shapeDef,&shape);
+    Collision *c = owner->GetComponent<BoxCollision>();
+    if(c)
+    {
+        collision = c;
+    }
+
+
+    c = owner->GetComponent<CircleCollision>();
+    if(c)
+    {
+        collision = c;
+    }
+
+    assert(c && "Movement: No BoxCollision or CircleCollision found");
+
+    b2Rot rotation = b2MakeRot(0.0f);
+
+    b2Body_SetTransform(collision->GetBodyId(),{ transform->position.x,transform->position.y },rotation);
 }
 
-void RigidBody::Ready()
+void Movement::Update()
 {
-    collision = owner->AddComponent<BoxCollision>();
-    transform = owner->GetComponent<Transform>();
+    transform->position.x = b2Body_GetPosition(collision->GetBodyId()).x;
+    transform->position.y = b2Body_GetPosition(collision->GetBodyId()).y;
 }
 
-void RigidBody::Update()
+
+
+
+
+void SpriteRenderer::Render()const
 {
-    std::cout<<"RigidBody Update: "<<b2Body_GetPosition(collision->bodyId).x<<","<<b2Body_GetPosition(collision->bodyId).y<<"\n";
-    transform->setPosition(glm::vec2(b2Body_GetPosition(collision->bodyId).x,b2Body_GetPosition(collision->bodyId).y));
+    // std::cout<< "SpriteRenderer: Render " << texture.id<<std::endl;
+    // std::cout<<"Position    "<<transform->position.x<<","<<transform->position.y<<std::endl;
+    // std::cout<<"Box2D   "<<b2Body_GetPosition(collision->GetBodyId()).x<<" , "<< b2Body_GetPosition(collision->GetBodyId()).y<<std::endl;
+    // std::cout<< " " <<std::endl;
+
+    ray::DrawTexturePro(
+        texture,                                                                                                                    // Texture
+        (ray::Rectangle){ beginSize.x,beginSize.y,endSize.x,endSize.y },                                                            // Source
+        (ray::Rectangle){ (float)transform->position.x,(float)transform->position.y,ray::TILE_SIZE_SCALED,ray::TILE_SIZE_SCALED },  // Destination
+        (ray::Vector2){ray::TILE_SIZE_SCALED / 2.0f,ray::TILE_SIZE_SCALED / 2.0f},                                                  // Origin
+        0.0f,                                                                                                                       // Rotation
+        ray::WHITE                                                                                                                  // Color
+    );
+
+
+    ray::DrawCircle((float)transform->position.x,(float)transform->position.y,5,ray::RED);
+
+
 }
+
+

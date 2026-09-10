@@ -1,29 +1,20 @@
-
+#include <LDtkLoader/Tile.hpp>
+#include <LDtkLoader/Project.hpp>
+#include <glm/glm.hpp>
+#include <entt/entt.hpp>
 
 #include "Actor.hpp"
 #include "Component.hpp"
-#include "Entity.hpp"
-#include "PlayerController.hpp"
+#include "Ray.hpp"
+#include "System.hpp"
+#include "Player.hpp"
 
-#include <LDtkLoader/Tile.hpp>
-#include <LDtkLoader/Project.hpp>
-#include <vector>
-#include <string>
-#include <glm/glm.hpp>
-
-namespace ray
-{
-    #include <raylib.h>
-};
-
+#include "entt/entity/fwd.hpp"
 
 const int TILE_SIZE = 16;
+std::vector<std::shared_ptr<Actor>> actors;
 
-std::vector<Actor*> actors;
-TileLayer tileLayer;
-
-
-void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
+void SetEntities(std::vector<std::shared_ptr<Actor>> &actors,const ldtk::Layer& layer)
 {
     if(layer.getType() != ldtk::LayerType::Entities)
     {
@@ -34,24 +25,25 @@ void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
     {
         int grid_x = entity.getGridPosition().x;
         int grid_y = entity.getGridPosition().y;
-        
+
         int value = -1;
         if(entity.getName() == ((std::string)"Chest"))
         {
             value = 1;
-        
+
         }
         else if(entity.getName() == ((std::string)"Player"))
         {
-            actors.push_back(new Actor());
-            actors.back()->AddComponent<BoxCollision>();
+            actors.push_back(std::make_shared<Actor>());
             actors.back()->AddComponent<Transform>();
+
+            actors.back()->GetComponent<Transform>()->position = glm::vec2(grid_x * ray::TILE_SIZE_SCALED, grid_y * ray::TILE_SIZE_SCALED);
+
             actors.back()->AddComponent<SpriteRenderer>();
-            actors.back()->AddComponent<RigidBody>();
+            actors.back()->AddComponent<CircleCollision>();
+            actors.back()->AddComponent<Movement>();
 
-
-            actors.back()->AddComponent<PlayerController>();
-            actors.back()->GetComponent<Transform>()->Init(glm::vec2(grid_x * TILE_SIZE,grid_y * TILE_SIZE));
+            actors.back()->AddScript<Player>();
         }
         else
         {
@@ -61,8 +53,7 @@ void SetEntities(std::vector<Actor*> &actors,const ldtk::Layer& layer)
     }
 }
 
-
-void SetTiles(TileLayer &tiles,const ldtk::Layer& layer)
+void SetTiles(entt::registry &registry,const ldtk::Layer& layer)
 {
     if(layer.getType() != ldtk::LayerType::Tiles)
     {
@@ -77,8 +68,10 @@ void SetTiles(TileLayer &tiles,const ldtk::Layer& layer)
         // std::cout<<tile.tileId<<std::endl;
         if(tile.tileId == 0)
         {
-             tiles.setEntity(glm::vec2(grid_x * TILE_SIZE, grid_y * TILE_SIZE),glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
-            // tiles.setEntity(glm::vec2(grid_x * TILE_SIZE * 3, grid_y * TILE_SIZE * 3),glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
+            auto entity = registry.create();
+            registry.emplace<Transform_Data>(entity,glm::vec2(grid_x * ray::TILE_SIZE_SCALED, grid_y * ray::TILE_SIZE_SCALED));
+            registry.emplace<SpriteRenderer_Data>(entity,glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
+            registry.emplace<BoxCollision_Data>(entity,glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
         }
     }
 }
@@ -91,7 +84,6 @@ int main()
 
     const auto& level = world.getLevel(0);
 
-   
     const ray::Vector2 window = {(float)2560,(float)1440};   // 4K Monitor
     //const Vector2 window = {(float)1280,(float)720};  // FullHD Monitor
     //const Vector2 window = {(float)1080,(float)1920}; // Mobile Phone Portrait
@@ -101,97 +93,99 @@ int main()
     const ray::Vector2 screen = {(float)1280,(float)720};  // FullHD Monitor
     //const Vector2 screen = {(float)1080,(float)1920}; // Mobile Phone Portrait
     //const Vector2 screen = {(float)1920,(float)1080}; // Mobile Phone Landscape
-    
+
     const ray::Vector2 scale = {(float)window.x / screen.x,(float)window.y / screen.y};
 
-
-    ray::InitWindow(window.x,window.y,"App");
+    ray::InitWindow(window.x,window.y,"app");
     ray::SetWindowState(ray::FLAG_VSYNC_HINT);
     ray::RenderTexture2D target = ray::LoadRenderTexture((int)screen.x,(int)screen.y);
     SetTextureFilter(target.texture,ray::TEXTURE_FILTER_POINT);
 
-
     ray::Camera2D camera = { 0 };
-    camera.target = (ray::Vector2){ 0.0f, 0.0f };                                                        // Center of 0,0
-    camera.offset = (ray::Vector2){0,0};    // Center of the screen
-    // camera.offset = (Vector2){(float)target.texture.width/ 2, (float)target.texture.height / 2};    // Center of the screen
+    camera.target = (ray::Vector2){ 0.0f,0.0f };   // Center of 0,0
+    camera.offset = (ray::Vector2){0,0};            // Center of the screen
     camera.rotation = 0.0f;
     camera.zoom = 1.0f;
 
+    SpriteRenderer::LoadTextureFromFile("res/sprite/tile.png");
 
     /*############################################################
     # Framework init
     ############################################################ */
-    std::vector<std::string> spritePaths;
-    spritePaths.push_back("res/sprite/tile.png");
-    
-    Collision::Init(glm::vec2(0.0f,0.0f));  // Collision init 
-    SpriteRenderer::Init(spritePaths);      // SpriteRenderer init
-    
-    tileLayer.Init();
+
+    Collision::Init(glm::vec2(0.0f,0.0f));
+    entt::registry registry;
+
+    SetTiles(registry,level.getLayer("Wall"));
+    SetEntities(actors,level.getLayer("Character"));
+
+    System::Init(registry);
+
 
     /*############################################################
     # Level init
-    ############################################################ */
-    SetEntities(actors,level.getLayer("Character"));
-    // SetTiles(tileLayer,level.getLayer("Wall"));
- 
-    for(Actor* actor : actors)
+    ############################################################*/
+    for(auto& actor : actors)
     {
-        actor->Ready();
         actor->Start();
     }
 
-    while (ray::WindowShouldClose() == false)
+    while(ray::WindowShouldClose() == false)
     {
 
         /*############################################################
-        # Update
+        # Draw to the render texture
         ############################################################ */
-
-            
-        
-        for(Actor* actor : actors)
         {
-            actor->Update();
+            /*############################################################
+            # Update
+            ############################################################ */
+
+                System::Update(registry);
+
+                for(auto& actor : actors)
+                {
+                    actor->Update();
+                }
+
+                Collision::WorldUpdate();
+            /*############################################################
+            # Rendering
+            ############################################################ */
+            ray::BeginTextureMode(target);
+            ray::BeginMode2D(camera);
+            ray::ClearBackground(ray::BLACK);
+
+                System::Render(registry);
+
+                for(auto& actor : actors)
+                {
+                    actor->Render();
+                }
+
+            ray::EndTextureMode();
+            ray::EndMode2D();
         }
 
-        Collision::WorldUpdate();
 
         /*############################################################
-        # Rendering     *Draw to the render texture
+        # Draw to the screen
         ############################################################ */
-        ray::BeginTextureMode(target);
-        ray::BeginMode2D(camera);
-        ray::ClearBackground(ray::BLACK);
-        
-        // tileLayer.Render();
-       
-        for(Actor* actor : actors)
         {
-            actor->Render();
-        }
+            ray::BeginDrawing();
+            ray::ClearBackground(ray::BLACK);
 
-
-        ray::EndTextureMode();
-        ray::EndMode2D();
-
-        /*############################################################
-        # Draw to the rennder texture to the screen
-        ############################################################ */
-        ray::BeginDrawing();
-        ray::ClearBackground(ray::BLACK);
-
-        ray::DrawTexturePro(
+                ray::DrawTexturePro(
                 target.texture,
-                (ray::Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },    // Source (flipped)
-                (ray::Rectangle){ 0, 0, (float)window.x,window.y },                                      // Destination
-                (ray::Vector2){0,0},                                                                     // Origin
-                0.0f,                                                                               // Rotation
+                (ray::Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },   // Source (flipped)
+                (ray::Rectangle){ 0, 0, (float)window.x,window.y },                                     // Destination
+                (ray::Vector2){0,0},                                                                    // Origin
+                0.0f,                                                                                   // Rotation
                 ray::WHITE
                 );
 
-        ray::EndDrawing();
+            ray::EndDrawing();
+        }
     }
 
 
