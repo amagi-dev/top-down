@@ -4,49 +4,10 @@
 
 #include "Ray.hpp"
 #include <box2d/collision.h>
-#include <glm/glm.hpp>
 #include <box2d/box2d.h>
-#include <entt/entt.hpp>
-
-/*#############################################################
- * ECS component data
- *#############################################################*/
-struct Transform_Data
-{
-    glm::vec2 position = { };
-};
-
-struct SpriteRenderer_Data
-{
-    glm::vec2 beginSize = { };
-    glm::vec2 endSize = { };
-};
-
-struct BoxCollision_Data
-{
-    glm::vec2 size = { };
-    glm::vec2 offset = { };
-
-    b2Polygon shape = { };
-    b2ShapeDef shapeDef = { };
-
-    b2BodyDef bodyDef ={ };
-    b2BodyId bodyId = { };
-};
-
-struct CircleCollision_Data
-{
-    float radius = 0.0f;
-    glm::vec2 offset = { };
-};
-
-/*#############################################################
- * Internal component data
- *#############################################################*/
-struct SpriteRenderer_Data_Internal
-{
-    ray::Texture2D sprite = { };
-};
+#include <glm/glm.hpp>
+#include <raylib.h>
+#include <vector>
 
 
 /*#############################################################
@@ -87,68 +48,22 @@ class Collision;
 class SpriteRenderer : public Component
 {
 public:
+    using Component::Component;
+    virtual ~SpriteRenderer() = default;
 
     Collision *collision = nullptr;
-
-    struct Texture
-    {
-        ray::Texture2D texture = {  };
-        const std::string path = {  };
-    };
-
     Transform *transform = nullptr;
+
+    glm::vec2 beginSize = { };
+    glm::vec2 endSize = { };
     ray::Texture2D texture = {  };
 
-    static void LoadTextureFromFile(const std::string& path)
-    {
-        for(auto& texture : textures)
-        {
-            if(texture.path == path)
-            {
-                ray::TraceLog(ray::LOG_WARNING,"SpriteRenderer: Texture already loaded %s",path.c_str());
-                return;
-            }
-        }
-
-        Texture texture = { .path = path };
-        texture.texture = ray::LoadTexture(texture.path.c_str());
-        textures.push_back(texture);
-    }
-
-    static ray::Texture2D GetTexture(const std::string& path)
-    {
-        for(auto& texture : textures)
-        {
-            if(texture.path == path)
-            {
-                return texture.texture;
-            }
-        }
-
-        ray::TraceLog(ray::LOG_ERROR,"SpriteRenderer: Texture not found %s",path.c_str());
-        return {  };
-    }
-
-    void SetTexture(const std::string& path)
-    {
-        texture = GetTexture(path);
-    }
 
     virtual void Start() override;
     virtual void Render()const override;
 
-    using Component::Component;
-    virtual ~SpriteRenderer() = default;
-
-
-
-    inline static std::vector<Texture> textures;
-
-    //ray::Texture2D sprite = {  };
-    glm::vec2 beginSize = { };
-    glm::vec2 endSize = { };
+    void setTexture(const char* indexName);
 };
-
 
 
 class Collision : public Component
@@ -166,7 +81,7 @@ public:
 
     static void WorldUpdate()
     {
-        b2World_Step(worldId,1.0f / 60.0f,4);
+        b2World_Step(worldId,ray::GetFrameTime(),4);
     }
 
     static b2WorldId GetWorldId()
@@ -262,14 +177,52 @@ public:
     virtual void Start() override;
     virtual void Update() override;
 
-    void Move(glm::vec2 move)
+    void Move(glm::vec2 move)const
     {
-        std::cout<< "Movement: Move " << move.x << "," << move.y << std::endl;
+        // std::cout<< "Movement: Move " << move.x << "," << move.y << std::endl;
         b2Body_SetLinearVelocity(collision->GetBodyId(),{ move.x,move.y });
     }
 
     Collision* collision = nullptr;
     Transform* transform = nullptr;
 };
+
+
+class Camera : public Component
+{
+private:
+
+public:
+
+    inline static glm::vec2 screenSize = {(float)1280,(float)720};
+    inline static ray::RenderTexture2D target = { };
+
+        ray::Camera2D camera = { 0 };
+    using Component::Component;
+    virtual ~Camera() = default;
+
+    Transform *transform = nullptr;
+    Movement *movement = nullptr;
+
+    void Begin()const;
+    void End()const;
+
+    ray::RenderTexture2D getTarget()const
+    {
+        return target;
+    }
+
+    void Move(glm::vec2 move)const
+    {
+        transform->position += move * ray::GetFrameTime();
+    }
+
+    virtual void Start()override;
+    virtual void Update()override;
+    virtual void Render()const override;
+
+
+};
+
 
 #endif

@@ -4,8 +4,8 @@
 #include "Actor.hpp"
 #include "Component.hpp"
 #include "Script.hpp"
+#include "ResourceManager.hpp"
 
-#include <iostream>
 class Player : public Script
 {
 private:
@@ -21,10 +21,10 @@ public:
     void Start() override
     {
         renderer = owner->GetComponent<SpriteRenderer>();
-        renderer->SetTexture("res/sprite/tile.png");
+        renderer->setTexture("tile");
+
         renderer->beginSize = glm::vec2(0.0f,ray::TILE_SIZE);
         renderer->endSize = glm::vec2(ray::TILE_SIZE, ray::TILE_SIZE);
-
 
         movement = owner->GetComponent<Movement>();
 

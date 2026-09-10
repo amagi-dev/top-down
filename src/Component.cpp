@@ -1,7 +1,8 @@
 #include "Component.hpp"
+
 #include "Actor.hpp"
 #include <box2d/box2d.h>
-#include <raylib.h>
+#include "ResourceManager.hpp"
 
 void SpriteRenderer::Start()
 {
@@ -21,6 +22,10 @@ void SpriteRenderer::Start()
     }
 }
 
+void SpriteRenderer::setTexture(const char* indexName)
+{
+    texture = ResourceManager::GetTexture(indexName);
+}
 void Movement::Start()
 {
     transform = owner->GetComponent<Transform>();
@@ -29,7 +34,6 @@ void Movement::Start()
     {
         collision = c;
     }
-
 
     c = owner->GetComponent<CircleCollision>();
     if(c)
@@ -40,7 +44,6 @@ void Movement::Start()
     assert(c && "Movement: No BoxCollision or CircleCollision found");
 
     b2Rot rotation = b2MakeRot(0.0f);
-
     b2Body_SetTransform(collision->GetBodyId(),{ transform->position.x,transform->position.y },rotation);
 }
 
@@ -71,9 +74,55 @@ void SpriteRenderer::Render()const
     );
 
 
-    ray::DrawCircle((float)transform->position.x,(float)transform->position.y,5,ray::RED);
+    // ray::DrawCircle((float)transform->position.x,(float)transform->position.y,5,ray::RED);
+}
+
+
+void Camera::Begin()const
+{
+    ray::BeginTextureMode(target);
+    ray::ClearBackground(ray::BLACK);
+    ray::BeginMode2D(camera);
+}
+
+
+void Camera::End()const
+{
+    ray::EndTextureMode();
+    ray::EndMode2D();
+}
+
+
+
+void Camera::Start()
+{
+    transform = owner->GetComponent<Transform>();
+
+    camera.target.x = transform->position.x;
+    camera.target.y = transform->position.y;
+
+    camera.offset = (ray::Vector2){screenSize.x / 2,screenSize.y / 2};
+    camera.rotation = 0.0f;
+    camera.zoom = 1.0f;
+
+
+    target = ray::LoadRenderTexture((int)screenSize.x,(int)screenSize.y);
+    ray::SetTextureFilter(target.texture,ray::TEXTURE_FILTER_POINT);
+
 
 
 }
+
+void Camera::Update()
+{
+
+}
+
+void Camera::Render()const
+{
+
+}
+
+
 
 

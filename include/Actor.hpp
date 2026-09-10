@@ -2,55 +2,21 @@
 #define ___ACTOR_HPP___
 #include <vector>
 #include <variant>
-// #include <memory>
+#include <memory>
 
 #include "Component.hpp"
-#include "Script.hpp"
+
+class Script;
 class Actor
 {
 public:
+
     Actor() = default;
     ~Actor() = default;
 
-    void Start()
-    {
-        for(auto& c : components)
-        {
-            std::visit([](Component& cc) { cc.Start(); }, c);
-        }
-
-        for(auto& s : scripts)
-        {
-            s->Start();
-        }
-    }
-
-    void Update()
-    {
-        for(auto& c : components)
-        {
-            std::visit([](Component& cc) { cc.Update(); }, c);
-        }
-
-        for(auto& s : scripts)
-        {
-            s->Update();
-        }
-    }
-
-    void Render()
-    {
-        for(auto& c : components)
-        {
-            std::visit([](Component& cc) { cc.Render(); }, c);
-        }
-
-
-        for(auto& s : scripts)
-        {
-            s->RenderUpdate();
-        }
-    }
+    void Start();
+    void Update();
+    void Render();
 
     template<typename T>
     void AddComponent()
@@ -102,8 +68,24 @@ public:
     }
 
 
+    template<typename T>
+    T* GetScript()
+    {
+        static_assert(std::is_base_of<Script,T>::value,"is not a Script type");
+
+        for(auto& c : scripts)
+        {
+            if(std::dynamic_pointer_cast<T>(c))
+            {
+                return std::dynamic_pointer_cast<T>(c).get();
+            }
+        }
+
+        return nullptr;
+    }
+
 private:
-    std::vector<std::variant<Transform,SpriteRenderer,CircleCollision,BoxCollision,Movement>> components;
+    std::vector<std::variant<Transform,SpriteRenderer,CircleCollision,BoxCollision,Movement,Camera>> components;
     std::vector<std::shared_ptr<Script>> scripts;
 };
 #endif

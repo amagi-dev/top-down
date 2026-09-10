@@ -3,15 +3,18 @@
 #include <glm/glm.hpp>
 #include <entt/entt.hpp>
 
+#include "Ray.hpp"
+#include "Data.hpp"
 #include "Actor.hpp"
 #include "Component.hpp"
-#include "Ray.hpp"
 #include "System.hpp"
-#include "Player.hpp"
+#include "ResourceManager.hpp"
 
-#include "entt/entity/fwd.hpp"
+#include "Player.hpp"
+#include "CameraController.hpp"
 
 const int TILE_SIZE = 16;
+glm::vec2 cameraPosition = { 0.0f, 0.0f };
 std::vector<std::shared_ptr<Actor>> actors;
 
 void SetEntities(std::vector<std::shared_ptr<Actor>> &actors,const ldtk::Layer& layer)
@@ -44,6 +47,8 @@ void SetEntities(std::vector<std::shared_ptr<Actor>> &actors,const ldtk::Layer& 
             actors.back()->AddComponent<Movement>();
 
             actors.back()->AddScript<Player>();
+
+            cameraPosition = actors.back()->GetComponent<Transform>()->position;
         }
         else
         {
@@ -70,8 +75,10 @@ void SetTiles(entt::registry &registry,const ldtk::Layer& layer)
         {
             auto entity = registry.create();
             registry.emplace<Transform_Data>(entity,glm::vec2(grid_x * ray::TILE_SIZE_SCALED, grid_y * ray::TILE_SIZE_SCALED));
+
+
             registry.emplace<SpriteRenderer_Data>(entity,glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
-            registry.emplace<BoxCollision_Data>(entity,glm::vec2(0,0),glm::vec2(TILE_SIZE,TILE_SIZE));
+            registry.emplace<BoxCollision_Data>(entity,glm::vec2(0,0),glm::vec2(ray::TILE_SIZE_SCALED,ray::TILE_SIZE_SCALED));
         }
     }
 }
@@ -98,16 +105,8 @@ int main()
 
     ray::InitWindow(window.x,window.y,"app");
     ray::SetWindowState(ray::FLAG_VSYNC_HINT);
-    ray::RenderTexture2D target = ray::LoadRenderTexture((int)screen.x,(int)screen.y);
-    SetTextureFilter(target.texture,ray::TEXTURE_FILTER_POINT);
 
-    ray::Camera2D camera = { 0 };
-    camera.target = (ray::Vector2){ 0.0f,0.0f };   // Center of 0,0
-    camera.offset = (ray::Vector2){0,0};            // Center of the screen
-    camera.rotation = 0.0f;
-    camera.zoom = 1.0f;
-
-    SpriteRenderer::LoadTextureFromFile("res/sprite/tile.png");
+    ResourceManager::LoadTexture("res/sprite/tile.png","tile");
 
     /*############################################################
     # Framework init
@@ -118,8 +117,9 @@ int main()
 
     SetTiles(registry,level.getLayer("Wall"));
     SetEntities(actors,level.getLayer("Character"));
-
     System::Init(registry);
+
+    // Camera
 
 
     /*############################################################
@@ -129,6 +129,18 @@ int main()
     {
         actor->Start();
     }
+
+    Actor cameraActor;
+    cameraActor.AddComponent<Transform>();
+    cameraActor.GetComponent<Transform>()->position = cameraPosition;
+    cameraActor.AddComponent<Camera>();
+    cameraActor.AddScript<CameraController>();
+    cameraActor.GetScript<CameraController>()->targetTransform = actors.back()->GetComponent<Transform>();
+
+    Camera *camera = cameraActor.GetComponent<Camera>();
+
+
+    cameraActor.Start();
 
     while(ray::WindowShouldClose() == false)
     {
@@ -140,31 +152,27 @@ int main()
             /*############################################################
             # Update
             ############################################################ */
+            System::Update(registry);
 
-                System::Update(registry);
+            for(auto& actor : actors)
+            {
+                actor->Update();
+            }
+            cameraActor.Update();
+            Collision::WorldUpdate();
 
-                for(auto& actor : actors)
-                {
-                    actor->Update();
-                }
 
-                Collision::WorldUpdate();
             /*############################################################
             # Rendering
             ############################################################ */
-            ray::BeginTextureMode(target);
-            ray::BeginMode2D(camera);
-            ray::ClearBackground(ray::BLACK);
-
+            camera->Begin();
                 System::Render(registry);
 
                 for(auto& actor : actors)
                 {
                     actor->Render();
                 }
-
-            ray::EndTextureMode();
-            ray::EndMode2D();
+            camera->End();
         }
 
 
@@ -176,8 +184,8 @@ int main()
             ray::ClearBackground(ray::BLACK);
 
                 ray::DrawTexturePro(
-                target.texture,
-                (ray::Rectangle){ 0, 0, (float)target.texture.width, -(float)target.texture.height },   // Source (flipped)
+                camera->getTarget().texture,
+                (ray::Rectangle){ 0, 0, (float)camera->getTarget().texture.width, -(float)camera->getTarget().texture.height },   // Source (flipped)
                 (ray::Rectangle){ 0, 0, (float)window.x,window.y },                                     // Destination
                 (ray::Vector2){0,0},                                                                    // Origin
                 0.0f,                                                                                   // Rotation

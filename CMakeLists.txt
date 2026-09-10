@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.16)
 
 # compiler
 set(CMAKE_CXX_COMPILER "clang++")
@@ -16,20 +16,44 @@ set(PROJECT_VERSION "1.0.0")
 project(${PROJECT_NAME} VERSION ${PROJECT_VERSION})
 
 #####################################################################
-# test project
+# Project
 #####################################################################
 
 set(EXE_NAME "app")
 set(EXE_SOURCE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(EXE_INCLUDE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-file(GLOB_RECURSE EXE_SOURCE_LIST CONFIGURE_DEPENDS "${EXE_SOURCE_PATH}/*")
 
+#file(GLOB_RECURSE EXE_SOURCE_LIST CONFIGURE_DEPENDS "${EXE_SOURCE_PATH}/*.cpp" "${EXE_SOURCE_PATH}/*.c")
+
+set(EXE_SOURCE_LIST
+    "${EXE_SOURCE_PATH}/Main.cpp"
+    "${EXE_SOURCE_PATH}/Component.cpp"
+    "${EXE_SOURCE_PATH}/System.cpp"
+    "${EXE_SOURCE_PATH}/ResouceManager.cpp"
+    "${EXE_SOURCE_PATH}/Actor.cpp"
+    # "${EXE_SOURCE_PATH}/Script.cpp"
+
+
+
+    "${EXE_SOURCE_PATH}/CameraController.cpp"
+
+)
 
 add_executable(${EXE_NAME} ${EXE_SOURCE_LIST})
+
+target_precompile_headers(${PROJECT_NAME} PRIVATE
+    <glm/glm.hpp>
+    <box2d/box2d.h>
+    <entt/entt.hpp>
+    <vector>
+    <variant>
+    <iostream>
+    <memory>
+)
+
+
 target_include_directories(${EXE_NAME} PRIVATE "${EXE_INCLUDE_PATH}")
-
-
 
 target_link_libraries(${EXE_NAME} PRIVATE "raylib")
 target_link_libraries(${EXE_NAME} PRIVATE "box2d")
