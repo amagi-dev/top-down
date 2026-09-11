@@ -1,5 +1,6 @@
 #include <LDtkLoader/Tile.hpp>
 #include <LDtkLoader/Project.hpp>
+#include <cinttypes>
 #include <glm/glm.hpp>
 #include <entt/entt.hpp>
 
@@ -9,6 +10,9 @@
 #include "Component.hpp"
 #include "System.hpp"
 #include "ResourceManager.hpp"
+#include "SceneManager.hpp"
+
+
 
 #include "Player.hpp"
 #include "CameraController.hpp"
@@ -123,24 +127,21 @@ int main()
 
 
     /*############################################################
-    # Level init
+    # Object init
     ############################################################*/
-    for(auto& actor : actors)
+    SceneManager::Add("Main");
+    SceneManager::SetInit_Process("Main",[](auto& scene)
     {
-        actor->Start();
-    }
+        std::cout<<"SceneManager: Main scene init"<<std::endl;
 
-    Actor cameraActor;
-    cameraActor.AddComponent<Transform>();
-    cameraActor.GetComponent<Transform>()->position = cameraPosition;
-    cameraActor.AddComponent<Camera>();
-    cameraActor.AddScript<CameraController>();
-    cameraActor.GetScript<CameraController>()->targetTransform = actors.back()->GetComponent<Transform>();
-
-    Camera *camera = cameraActor.GetComponent<Camera>();
+    });
 
 
-    cameraActor.Start();
+    SceneManager::Allocate("Main");
+    SceneManager::SetCurrent("Main");
+
+
+
 
     while(ray::WindowShouldClose() == false)
     {
@@ -149,30 +150,7 @@ int main()
         # Draw to the render texture
         ############################################################ */
         {
-            /*############################################################
-            # Update
-            ############################################################ */
-            System::Update(registry);
-
-            for(auto& actor : actors)
-            {
-                actor->Update();
-            }
-            cameraActor.Update();
-            Collision::WorldUpdate();
-
-
-            /*############################################################
-            # Rendering
-            ############################################################ */
-            camera->Begin();
-                System::Render(registry);
-
-                for(auto& actor : actors)
-                {
-                    actor->Render();
-                }
-            camera->End();
+            SceneManager::Loop();
         }
 
 
@@ -183,6 +161,7 @@ int main()
             ray::BeginDrawing();
             ray::ClearBackground(ray::BLACK);
 
+                /*
                 ray::DrawTexturePro(
                 camera->getTarget().texture,
                 (ray::Rectangle){ 0, 0, (float)camera->getTarget().texture.width, -(float)camera->getTarget().texture.height },   // Source (flipped)
@@ -191,6 +170,7 @@ int main()
                 0.0f,                                                                                   // Rotation
                 ray::WHITE
                 );
+                */
 
             ray::EndDrawing();
         }

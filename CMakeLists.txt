@@ -32,6 +32,7 @@ set(EXE_SOURCE_LIST
     "${EXE_SOURCE_PATH}/System.cpp"
     "${EXE_SOURCE_PATH}/ResouceManager.cpp"
     "${EXE_SOURCE_PATH}/Actor.cpp"
+    "${EXE_SOURCE_PATH}/SceneManager.cpp"
     # "${EXE_SOURCE_PATH}/Script.cpp"
 
 
